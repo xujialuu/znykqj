@@ -8,4 +8,4 @@ Intelligent cloud attendance machine
 外壳2.0  ：智能云考勤机外壳
 
 相关链接：
-B站：
+B站：https://www.bilibili.com/video/BV16N41197cr?p=1
