@@ -1,0 +1,338 @@
+C51 COMPILER V9.59.0.0   ELECTRONIC_LOCKS                                                  02/07/2021 17:46:35 PAGE 1   
+
+
+C51 COMPILER V9.59.0.0, COMPILATION OF MODULE ELECTRONIC_LOCKS
+OBJECT MODULE PLACED IN .\Objects\electronic locks.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE electronic locks.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\L
+                    -istings\electronic locks.lst) TABS(2) OBJECT(.\Objects\electronic locks.obj)
+
+line level    source
+
+   1          #include "stc8.h"
+   2          #include "1cd_12864.h"
+*** WARNING C318 IN LINE 2 OF electronic locks.c: can't open file '1cd_12864.h'
+   3          #include <intrins.h>
+   4          #define uchar unsigned char
+   5          #define uint unsigned int
+   6          #define BUTTON_ PORT P1 //定义按键端口
+   7          #define passwordBit 6  //定义初始密码为六位
+   8          sbit LED=P3^7;         //***等下改***  蜂鸣器和led灯相关配合显示
+   9          sbit BUZZER=P2^3;
+  10          uchar code table[]={0x30, 0x31 , 0x32, 0x33,0x34 ,0x35,0x36,0x37,0x38,0x39, 'A','B','C','D','E','F'}; //0-
+             -9以及abcdef
+  11          uchar Original_password[passwordBit]={0x30 ,0x31,0x32,0x33,0x34,0x35} ;                             //初始
+             -密码为012345（六位）
+  12          uchar code Set_password[]={0x30,0x31 ,0x32 ,0x33,0x34,0x35,0x36,0x37 ,0x38,0x39,'A','B','C','D','E','F'};
+  13          /*相关提示语*/
+  14          uchar code dis[]={"Please selects menu ! Button1 selects normal mode. Button2 selects modify system passwo
+             -rd! !"} ;  //选择模式：正常模式 / 修改密码
+  15          uchar code test1[]={"Password error"};
+  16          uchar code test2[]={"Password correct"};
+  17          uchar code test3[]={"Please input"} ;
+  18          uchar code test4[]={"Check passwor d."};
+  19          uchar code test5[]={"Input again!! !"};
+  20          uchar code test6[]={"System open"};
+  21          uchar code conceal='*';
+  22          uchar code menuString1 []={"Operation "};
+  23          uchar code menustring2[]={ "Modify Password"} ;
+  24          uchar save[16]={0};
+  25          uchar operationFlag=0;
+  26          uchar flag=1 ;
+  27          uchar cnt=0;
+  28          uchar systemFlag=1 ;
+  29          uchar k1=0;
+  30          uchar k2=0;
+  31          uchar modify=0;
+  32          uchar exitFlag=1;
+  33          
+  34          
+  35          /***********************************函数声明区**********************************/
+  36          void delay_ms(uint i) ;
+  37          uchar Scan_Button(void) ;
+  38          void Check_Password(void) ; .
+*** ERROR C141 IN LINE 38 OF electronic locks.c: syntax error near '.', expected 'hdata'
+  39          void Menu (void) ;
+  40          void modify_Password(void) ;
+  41          void renew_Password(void) ;
+  42          void input_Password(void) ; .
+*** ERROR C141 IN LINE 42 OF electronic locks.c: syntax error near '.', expected 'hdata'
+  43          void entry(void) ;
+  44          void displayMenu(void) ;
+  45          
+  46          
+  47          
+  48          /*****************************************************
+C51 COMPILER V9.59.0.0   ELECTRONIC_LOCKS                                                  02/07/2021 17:46:35 PAGE 2   
+
+  49          函数名称:延时函数
+  50          参数:延时数
+  51          返回值:无
+  52          ******************************************************/
+  53          
+  54          void delay_ ms (uint i){
+*** ERROR C136 IN LINE 54 OF electronic locks.c: 'delay_': 'void' on variable
+*** ERROR C129 IN LINE 54 OF electronic locks.c: missing ';' before 'ms'
+  55            uint j=0;
+  56            uint n=0 ;
+  57            for(j=0;j<i;j++)
+  58              for(n=0 ;n<=118 ;n++) ;}
+  59          
+  60              
+  61          /*函数名称：正常模式函数
+  62            作用：进入之后自定义要干啥子
+  63            返回值：无*/    
+  64          void entry (void)     
+  65          {
+  66            uchar i=0 ;
+  67            LCD_ Clear() ;
+  68            LCD Write_ String(0,0, "Entry SYSTEM") ;
+  69            LCD_ Write_ String(0,1, "KEY1 Exit") ;  //key1是中断系统的开关怎么定义呀 奇奇怪怪（窃以为不用的）
+  70            BUZZER=1 ;
+  71            LED=1 ;
+  72            while (exitFlag)      //正常模式是个死循环 必须要（?外部中断?） 按下按钮 让exitFlag = 0 退出正常模式;
+  73            {
+  74              if(i==100)
+  75              { 
+  76                i=0 ;
+  77                LED=!LED;//正常执行：点亮led灯 让蜂鸣器响   ***要加上电子锁在这里***
+  78              }
+  79              BUZZER=! BUZZER ;
+  80              i++ ;
+  81              delay_ ms(10) ;
+  82          }
+  83          
+  84          }
+  85          
+  86          
+  87          
+  88          /*修改密码*/
+  89          void modify_ Password (void)
+  90          {
+  91            LCD_ Clear() ;
+  92            LCD_ Write_ String(0,0,test3) ;
+  93            LCD_ Write_ Com(0XC0) ;
+  94            while (modify==0)
+  95              Scan_ Button() ;
+  96          }
+  97          
+  98          
+  99          
+ 100          
+ 101          
+ 102          /*矩阵键盘扫描*/
+ 103          uchar Scan_ Button (void)
+ 104          {
+ 105            uchar i=0 , count=0 , temp=0 ,LINE[4]={0xef ,0xdf ,0xbf ,0x7f} ;
+ 106            
+ 107            BUTTON_ PORT=0xff ;
+ 108            
+C51 COMPILER V9.59.0.0   ELECTRONIC_LOCKS                                                  02/07/2021 17:46:35 PAGE 3   
+
+ 109            for(i=0;i<4;i++)
+ 110            {
+ 111              BUTTON_ PORT = LINE[i] ;
+ 112              delay_ ms(20) ; 
+ 113              temp = 0x01 ;
+ 114              for (count=0 ;count<4 ;count++)
+ 115              {
+ 116                if(! (BUTTON PORT &temp) ){
+ 117                    
+ 118                  if (systemFlag==1){
+ 119                    LCD_ Write_ Data (conceal) ;   //可以屏蔽密码
+ 120                    save [k1++]=table [ (count+i*4) ] ;   //存储密码
+ 121          
+ 122                    if(k1== =passwordBit){
+ 123                      kl=0;
+ 124                      Check_ _Password() ;
+ 125                      }
+ 126                    }
+ 127                else if (systemFlag==2)
+ 128                {
+ 129                  Original_ pas sword [k2++]=table [ (count+i*4) ] ;   //密码修改在原始密码中覆盖掉
+ 130                  LCD_ Write_ Data( (count+i*4)+'0') ;
+ 131                  if (k2= == =passwordBit)
+ 132                  {
+ 133                    k2=0 ;
+ 134                    renew_ Password() ;     //更新密码
+ 135                  }
+ 136                }
+ 137                else if (0==systemFlag){operationFlag= (count+i*4);}   //直接设置变量
+ 138                while (! (BUTTON_ PORT&temp)) ; //松开
+ 139                return (count+i*4) ;
+ 140                }
+ 141              temp<<=1;
+ 142              }
+ 143            }
+ 144          return 0xff ;
+ 145          }
+ 146          
+ 147          
+ 148          
+ 149          /*更新密码*/
+ 150          void renew_Password (void){
+ 151            LCD_ Clear () ;
+ 152            LCD_ Write_ String(0,0 ,menuString2) ;
+ 153            LCD_ Write_ String(0,1, "Finished! ! !") ; //提示密码完成
+ 154            systemFlag=0;
+ 155            modify=1 ;
+ 156            delay_ ms (2000) ;
+ 157          }
+ 158          
+ 159          
+ 160          
+ 161          
+ 162          
+ 163          
+ 164          
+ 165          /*验证密码*/
+ 166          void Check_ Password (void)
+ 167          {
+ 168            uchar i=0 ;
+ 169            for(i=0 ;i<passwordBit;i++)
+ 170            {
+C51 COMPILER V9.59.0.0   ELECTRONIC_LOCKS                                                  02/07/2021 17:46:35 PAGE 4   
+
+ 171              if (save [i] ! =Original_ password[i])
+ 172                break ;
+ 173            if (i == passwordBit)
+ 174            {
+ 175              LCD_ Write_ String(0,l,test2) ;
+ 176              cnt=0 ;
+ 177              flag=0 ;
+ 178              systemFlag=0;
+ 179            }
+ 180            else
+ 181            {
+ 182              LCD_ Write_ String(0,1,testl) ;
+ 183              cnt++ ;
+ 184              flag=1 ;
+ 185              delay_ms (2000) ;
+ 186              LCD_ Write_ String(0,0,test5) ;
+ 187              systemFlag=l;
+ 188            }
+ 189            delay_ ms (2000) ;
+ 190            LCD_ Clear() ;
+ 191            LCD_ Write_ Com(0x80) ;
+ 192          }
+ 193            
+ 194          
+ 195          
+ 196          
+ 197          
+ 198          void displayMenu (void)
+ 199          {
+ 200            
+ 201            uchar i=0 ;
+ 202            LCD_ Clear() ;
+ 203            LCD_ Write_Com (0x80) ;
+ 204            for(i=0;i<91 ;i++)
+ 205            {
+ 206              if(i==16)
+ 207                LCD_ Write_ _Com(0xc0) ;
+ 208              else if(i==32){
+ 209                LCD_ Clear() ;
+ 210                LCD_Write_Com(0x80);}
+ 211                
+ 212              else if(i == 48)
+ 213                  LCD_Write_Com(0xc0);
+ 214              else if(i == 64){
+ 215                  LCD_Clear();
+ 216                  LCD_Write_Com(0xc0);
+ 217              else if (i == 80)
+ 218                LCD_Write_Com(0xc0);
+ 219              else;
+ 220              LCD_Write_Data(dis[i]);
+ 221              delat_ms(300);
+ 222                
+ 223                  }
+ 224              }
+ 225            }
+ 226          
+ 227            
+ 228            
+ 229            
+ 230          void Menu(void){
+ 231            LED=1;
+ 232            modify = 0;
+C51 COMPILER V9.59.0.0   ELECTRONIC_LOCKS                                                  02/07/2021 17:46:35 PAGE 5   
+
+ 233            displayMenu();
+ 234            systemFlag = 0;
+ 235            while ( (operationFlag!=1) && (operationFlag!=2))
+ 236            {
+ 237              Scan_ Button();
+ 238            }
+ 239            if (operationFlag==1)         //按下1 是正常模式
+ 240            {
+ 241              exitFlag=1 ;
+ 242              entry() ;
+ 243              LED=1;      //正常执行
+ 244              delay_ ms (2000);
+ 245            }
+ 246            else if (operationFlag==2)   //按下2 是修改密码
+ 247          {
+ 248          
+ 249              systemFlag=2 ;
+ 250              modify_ Password() ;    //修改密码
+ 251              LCD_ Clear() ;
+ 252              LCD_ Write_ String(0,0,"Please input") ;
+ 253              LCD_ Write_ String(0,1 , "password...") ;
+ 254              delay_ms (2000) ;
+ 255              LCD_ Clear() ;
+ 256              systemFlag=l;
+ 257              flag=1 ;
+ 258              LCD_ Write_ Com(0x80) ;
+ 259              while (flag==1){
+ 260              
+ 261                Scan_Button();
+ 262              }
+ 263              displayMenu();
+ 264              delay_ms(2000);
+ 265            }
+ 266            else{
+ 267              systemFlag = 0;  //预留
+ 268            }
+ 269          } 
+ 270          
+ 271          
+ 272          
+ 273          
+ 274          
+ 275          int main (void)
+ 276          {
+ 277            LCD_ Init() ;    //lcd初始化
+ 278            IT0=1 ;           //初始化中断
+ 279            EX0=1 ;
+ 280            EA=1 ;
+ 281            LCD_ Clear() ;    //清屏
+ 282            LCD_ Write_ String(0,0,"Please input") ;
+ 283            LCD_ Write_ String(0,1, "password.. .") ;
+ 284            delay_ ms(2000) ;
+ 285            LCD_ Clear() ;
+ 286            LCD_ Write_ Com(0x80) ;  // ？？ 地址归位
+ 287            while (flag==1){
+ 288              Scan_ Button();    //按键扫描
+ 289            } 
+ 290            delay_ ms (2000) ;
+ 291            LCD_ Clear() ;
+ 292            LCD_ Write_ String(0,0,test6) ;
+ 293            delay_ ms (2000) ;
+ 294            while(l){
+C51 COMPILER V9.59.0.0   ELECTRONIC_LOCKS                                                  02/07/2021 17:46:35 PAGE 6   
+
+ 295            Menu();
+ 296            }
+ 297            return 0 ;
+ 298          }
+ 299          
+ 300          
+ 301          
+ 302          
+ 303          void int0_ Handler (void) interrupt 0
+ 304          {
+ 305              exitFlag=0 ;
+ 306          }
+ 307          
+ 308          
+
+C51 COMPILATION COMPLETE.  1 WARNING(S),  4 ERROR(S)

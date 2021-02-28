@@ -1,0 +1,174 @@
+C51 COMPILER V9.59.0.0   LCD_12864                                                         02/27/2021 22:04:44 PAGE 1   
+
+
+C51 COMPILER V9.59.0.0, COMPILATION OF MODULE LCD_12864
+OBJECT MODULE PLACED IN .\Objects\lcd_12864.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE lcd_12864.c LARGE OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Li
+                    -stings\lcd_12864.lst) TABS(2) OBJECT(.\Objects\lcd_12864.obj)
+
+line level    source
+
+   1          #include"stc8.h"
+   2          #include <intrins.h>
+   3          #include "delay.h"
+   4          #include"lcd_12864.h"
+   5          
+   6          char local_date=0,base_date=0;//»´æ÷±‰¡ø£¨µ±«∞º˝Õ∑Œª÷√
+   7          
+   8          
+   9          unsigned char code *Main_Menu[]=
+  10          {
+  11          {"  ÷∏Œ∆ ∂±œµÕ≥"},
+  12          {"   «∑Ò—È÷§÷∏Œ∆?"}
+  13          };
+  14          /*------------------------------------------------
+  15                              ºÏ≤‚√¶Œª
+  16          ------------------------------------------------*/
+  17          void Check_Busy()
+  18          {  
+  19   1          RS=0;
+  20   1          RW=1;
+  21   1          E=1;
+  22   1          DataPort=0xff;
+  23   1          while((DataPort&0x80)==0x80);//√¶‘Úµ»¥˝
+  24   1          E=0;
+  25   1      }
+  26          /*------------------------------------------------
+  27                             –¥√¸¡Ó
+  28          ------------------------------------------------*/
+  29          void Write_Cmd(unsigned char Cmd)
+  30          {
+  31   1        Check_Busy();
+  32   1        RS=0;
+  33   1        RW=0;
+  34   1        E=1;
+  35   1        DataPort=Cmd;
+  36   1        Delay_Us(20);    // _nop_();∫Ø ˝“≤ø…“‘¥ÔµΩ∂Ã‘›—” ±µƒ–ßπ˚
+  37   1        E=0;
+  38   1        Delay_Us(20);
+  39   1      }
+  40          /*------------------------------------------------
+  41                              –¥ ˝æ›
+  42          ------------------------------------------------*/
+  43          void Write_Data(unsigned char Data)
+  44          {
+  45   1        Check_Busy();
+  46   1        RS=1;
+  47   1        RW=0;
+  48   1        E=1;
+  49   1        DataPort=Data;
+  50   1        Delay_Us(20);
+  51   1        E=0;
+  52   1        Delay_Us(20);
+  53   1      }
+  54          /*------------------------------------------------
+C51 COMPILER V9.59.0.0   LCD_12864                                                         02/27/2021 22:04:44 PAGE 2   
+
+  55                             “∫æß∆¡≥ı ºªØ
+  56          ------------------------------------------------*/
+  57          void Init_ST7920()
+  58          {  
+  59   1         Delay_Ms(40);           //¥Û”⁄40MSµƒ—” ±≥Ã–Ú
+  60   1         PSB=1;                 //…Ë÷√Œ™8BIT≤¢ø⁄π§◊˜ƒ£ Ω
+  61   1         Delay_Ms(1);            //—” ±
+  62   1         RES=0;                 //∏¥Œª
+  63   1         Delay_Ms(1);            //—” ±
+  64   1         RES=1;                 //∏¥Œª÷√∏ﬂ
+  65   1         Delay_Ms(10);
+  66   1         Write_Cmd(0x30);       //—°‘Òª˘±æ÷∏¡ÓºØ
+  67   1         Delay_Us(120);         //—” ±¥Û”⁄100us
+  68   1         Write_Cmd(0x30);       //—°‘Ò8bit ˝æ›¡˜
+  69   1         Delay_Us(50);         //—” ±¥Û”⁄37us
+  70   1         Write_Cmd(0x0c);       //ø™œ‘ æ(Œﬁ”Œ±Í°¢≤ª∑¥∞◊)
+  71   1         Delay_Us(120);         //—” ±¥Û”⁄100us
+  72   1         Write_Cmd(0x01);       //«Â≥˝œ‘ æ£¨≤¢«“…Ë∂®µÿ÷∑÷∏’ÎŒ™00H
+  73   1         Delay_Ms(10);           //—” ±¥Û”⁄10ms
+  74   1         Write_Cmd(0x06);       //÷∏∂®‘⁄◊ ¡œµƒ∂¡»°º∞–¥»Î ±£¨…Ë∂®”Œ±Íµƒ“∆∂Ø∑ΩœÚº∞÷∏∂®œ‘ æµƒ“∆Œª£¨π‚±Í¥””“œÚ◊Ûº”1Œ
+             -ª“∆∂Ø
+  75   1         Delay_Us(120);         //—” ±¥Û”⁄100us
+  76   1      }
+  77          /*------------------------------------------------
+  78                             ”√ªß◊‘∂®“Â◊÷∑˚
+  79          ------------------------------------------------*/
+  80          /*void CGRAM()
+  81          { 
+  82               int i;
+  83               Write_Cmd(0x30); 
+  84               Write_Cmd(0x40);
+  85               for(i=0;i<16;i++)
+  86                 {
+  87                Write_Data(user16x16[i*2]);
+  88                  Write_Data(user16x16[i*2+1]);
+  89                }
+  90          }   */
+  91          /*------------------------------------------------
+  92                             œ‘ æ”√ªß◊‘∂®“Â◊÷∑˚
+  93          ------------------------------------------------*/
+  94          void DisplayCGRAM(unsigned char x,unsigned char y)     
+  95          { 
+  96   1       switch(y)
+  97   1           {
+  98   2          case 1: Write_Cmd(0x80+x);break;
+  99   2          case 2: Write_Cmd(0x90+x);break;
+ 100   2          case 3: Write_Cmd(0x88+x);break;
+ 101   2          case 4: Write_Cmd(0x98+x);break;
+ 102   2            default:break;
+ 103   2         }
+ 104   1          Write_Data(00);
+ 105   1          Write_Data(00);
+ 106   1      
+ 107   1      }         
+ 108          /*------------------------------------------------
+ 109                             œ‘ æ◊÷∑˚¥Æ
+ 110          x:∫·◊¯±Í÷µ£¨∑∂Œß0~8
+ 111          y:◊›◊¯±Í÷µ£¨∑∂Œß1~4
+ 112          ------------------------------------------------*/
+ 113          void LCD_PutString(unsigned char x,unsigned char y,unsigned char code *s)
+ 114          { 
+ 115   1       switch(y)
+C51 COMPILER V9.59.0.0   LCD_12864                                                         02/27/2021 22:04:44 PAGE 3   
+
+ 116   1           {
+ 117   2          case 1: Write_Cmd(0x80+x);break;
+ 118   2          case 2: Write_Cmd(0x90+x);break;
+ 119   2          case 3: Write_Cmd(0x88+x);break;
+ 120   2          case 4: Write_Cmd(0x98+x);break;
+ 121   2            default:break;
+ 122   2         }
+ 123   1       while(*s>0)
+ 124   1         { 
+ 125   2            Write_Data(*s);
+ 126   2            s++;
+ 127   2           Delay_Us(120);
+ 128   2         }
+ 129   1      }
+ 130          /*------------------------------------------------
+ 131                                «Â∆¡
+ 132          ------------------------------------------------*/
+ 133          void ClrScreen()
+ 134          { 
+ 135   1         Write_Cmd(0x01);
+ 136   1         Delay_Ms(20);
+ 137   1      }
+ 138              
+ 139          void DisplayUpdata(void)
+ 140          {   
+ 141   1        ClrScreen();
+ 142   1          LCD_PutString(0,1,Main_Menu[0]);    
+ 143   1          LCD_PutString(0,3,Main_Menu[1]);   //windowsª∑æ≥œ¬ø…“‘÷±Ω”–¥∫∫◊÷
+ 144   1        
+ 145   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    387    ----
+   CONSTANT SIZE    =     31    ----
+   XDATA SIZE       =      6       4
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

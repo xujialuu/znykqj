@@ -1,0 +1,111 @@
+C51 COMPILER V9.59.0.0   VOICE                                                             02/27/2021 22:04:45 PAGE 1   
+
+
+C51 COMPILER V9.59.0.0, COMPILATION OF MODULE VOICE
+OBJECT MODULE PLACED IN .\Objects\voice.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE voice.c LARGE OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listin
+                    -gs\voice.lst) TABS(2) OBJECT(.\Objects\voice.obj)
+
+line level    source
+
+   1          #include "stc8.h"
+   2          #include "voice.h"
+   3          
+   4          char  code  MESSAGE1[6]={0xAA,0x07,0x02,0x00,0x01,0xB4};  //定义到程序空间中
+   5          char  code  MESSAGE2[6]={0xAA,0x07,0x02,0x00,0x02,0xB5};  //定义到程序空间中
+   6          char  code  MESSAGE3[6]={0xAA,0x07,0x02,0x00,0x03,0xB6};  //定义到程序空间中
+   7          
+   8          
+   9          
+  10          void delay(unsigned int m)        //延时函数
+  11              {
+  12   1          int  a=0,b=0;
+  13   1          for(a=0;a<500;a++)
+  14   1          for(b=0;b<m;b++);
+  15   1        
+  16   1        }
+  17          
+  18          
+  19          void ISP_Check1()           //串口发送调用函数(播放识别成功)
+  20          {
+  21   1        unsigned char x=0;   
+  22   1      
+  23   1          //a=0;
+  24   1           //while(MESSAGE[a]!= '\0')
+  25   1             for(x=0;x<6;x++)
+  26   1             {
+  27   2                SBUF = MESSAGE1[x];         //SUBF接受/发送缓冲器(又叫串行通信特殊功能寄存器)
+  28   2                while(!TI);       // 等特数据传送 (TI发送中断标志)
+  29   2                TI = 0;         // 清除数据传送标志
+  30   2          
+  31   2          //a++;              // 下一个字符
+  32   2             } 
+  33   1      }
+  34          
+  35          
+  36          void ISP_Check2()           //串口发送调用函数（播放识别失败）
+  37          {
+  38   1        unsigned char x=0;   
+  39   1      
+  40   1          //a=0;
+  41   1           //while(MESSAGE[a]!= '\0')
+  42   1             for(x=0;x<6;x++)
+  43   1             {
+  44   2          SBUF = MESSAGE2[x];         //SUBF接受/发送缓冲器(又叫串行通信特殊功能寄存器)
+  45   2               while(!TI);        // 等特数据传送 (TI发送中断标志)
+  46   2           TI = 0;          // 清除数据传送标志
+  47   2          
+  48   2          //a++;              // 下一个字符
+  49   2             } 
+  50   1           }     
+  51                 
+  52          void ISP_Check3()           //串口发送调用函数（播放密码错误）
+  53          {
+  54   1        unsigned char x=0;   
+C51 COMPILER V9.59.0.0   VOICE                                                             02/27/2021 22:04:45 PAGE 2   
+
+  55   1      
+  56   1          //a=0;
+  57   1           //while(MESSAGE[a]!= '\0')
+  58   1             for(x=0;x<6;x++)
+  59   1             {
+  60   2                SBUF = MESSAGE3[x];         //SUBF接受/发送缓冲器(又叫串行通信特殊功能寄存器)
+  61   2                while(!TI);       // 等特数据传送 (TI发送中断标志)
+  62   2                TI = 0;         // 清除数据传送标志
+  63   2          
+  64   2          //a++;              // 下一个字符
+  65   2             } 
+  66   1           }
+  67          
+  68          
+  69          void voice_init()        //主函数
+  70          {
+  71   1      
+  72   1        
+  73   1        
+  74   1      
+  75   1          SCON = 0x50;        //REN=1允许串行接受状态，串口工作模式2         
+  76   1          TMOD = 0x00;       //定时器1为模式0（16位自动重载）                
+  77   1          AUXR = 0X40;     //开启1T模式
+  78   1          TL1=(65535-(24000000/4/9600));    //设置波特率重装值
+  79   1          TH1=(65535-(24000000/4/9600))>>8;
+  80   1      
+  81   1                               // 如有不明白请查 STC8手册上有详细说明    
+  82   1            
+  83   1          TR1  = 1;        //开启定时器1                                                                      
+  84   1          EA   = 1;        // 开总中断 
+  85   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    136    ----
+   CONSTANT SIZE    =     18    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

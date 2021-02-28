@@ -1,0 +1,445 @@
+C51 COMPILER V9.59.0.0   FPM10A                                                            02/27/2021 22:04:44 PAGE 1   
+
+
+C51 COMPILER V9.59.0.0, COMPILATION OF MODULE FPM10A
+OBJECT MODULE PLACED IN .\Objects\FPM10A.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE FPM10A.c LARGE OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listi
+                    -ngs\FPM10A.lst) TABS(2) OBJECT(.\Objects\FPM10A.obj)
+
+line level    source
+
+   1          #include "FPM10A.h"
+   2          #include "stc8.h"
+   3          #include "key.h"
+   4          #include "uart.h"
+   5          #include "lcd_12864.h"
+   6          #include "delay.h"
+   7          #include "voice.h"
+   8          #include "led.h"
+   9          
+  10          #include "keyboard.h"
+  11          
+  12          volatile unsigned char FPM10A_RECEICE_BUFFER[32];
+  13          unsigned int finger_id = 0;
+  14          unsigned char count = 0;
+  15          extern int key;
+  16          
+  17          
+  18          //FINGERPRINTÍ¨ÐÅÐ­Òé¶¨Òå
+  19          
+  20          code unsigned char FPM10A_Get_Device[10] ={0x01,0x00,0x07,0x13,0x00,0x00,0x00,0x00,0x00,0x1b};//¿ÚÁîÑéÖ¤
+  21          code unsigned char FPM10A_Pack_Head[6] = {0xEF,0x01,0xFF,0xFF,0xFF,0xFF};  //Ð­Òé°üÍ·
+  22          code unsigned char FPM10A_Get_Img[6] = {0x01,0x00,0x03,0x01,0x00,0x05};    //»ñµÃÖ¸ÎÆÍ¼Ïñ
+  23          code unsigned char FPM10A_Get_Templete_Count[6] ={0x01,0x00,0x03,0x1D,0x00,0x21 }; //»ñµÃÄ£°æ×ÜÊý
+  24          code unsigned char FPM10A_Search[11]={0x01,0x00,0x08,0x04,0x01,0x00,0x00,0x03,0xE7,0x00,0xF8}; //ËÑË÷Ö¸ÎÆË
+             -ÑË÷·¶Î§0 - 999,Ê¹ÓÃBUFFER1ÖÐµÄÌØÕ÷ÂëËÑË÷
+  25          code unsigned char FPM10A_Search_0_9[11]={0x01,0x00,0x08,0x04,0x01,0x00,0x00,0x00,0x13,0x00,0x21}; //ËÑË÷0
+             --9ºÅÖ¸ÎÆ
+  26          code unsigned char FPM10A_Img_To_Buffer1[7]={0x01,0x00,0x04,0x02,0x01,0x00,0x08}; //½«Í¼Ïñ·ÅÈëµ½BUFFER1
+  27          code unsigned char FPM10A_Img_To_Buffer2[7]={0x01,0x00,0x04,0x02,0x02,0x00,0x09}; //½«Í¼Ïñ·ÅÈëµ½BUFFER2
+  28          code unsigned char FPM10A_Reg_Model[6]={0x01,0x00,0x03,0x05,0x00,0x09}; //½«BUFFER1¸úBUFFER2ºÏ³ÉÌØÕ÷Ä£°æ
+  29          code unsigned char FPM10A_Delete_All_Model[6]={0x01,0x00,0x03,0x0d,0x00,0x11};//É¾³ýÖ¸ÎÆÄ£¿éÀïËùÓÐµÄÄ£°æ
+  30          volatile unsigned char  FPM10A_Save_Finger[9]={0x01,0x00,0x06,0x06,0x01,0x00,0x0B,0x00,0x19};//½«BUFFER1ÖÐ
+             -µÄÌØÕ÷Âë´æ·Åµ½Ö¸¶¨µÄÎ»ÖÃ
+  31          //volatile:ÏµÍ³×ÜÊÇÖØÐÂ´ÓËüËùÔÚµÄÄÚ´æ¶ÁÈ¡Êý¾Ý£¬¼´Ê¹ËüÇ°ÃæµÄÖ¸Áî¸Õ¸Õ´Ó¸Ã´¦¶ÁÈ¡¹ýÊý¾Ý
+  32          /*------------------ FINGERPRINTÃüÁî×Ö --------------------------*/
+  33           //·¢ËÍ°üÍ·
+  34          void FPM10A_Cmd_Send_Pack_Head(void)
+  35          {
+  36   1        int i;  
+  37   1        for(i=0;i<6;i++) //°üÍ·
+  38   1         {
+  39   2           Uart_Send_Byte(FPM10A_Pack_Head[i]);   
+  40   2          }   
+  41   1      }
+  42          //·¢ËÍÖ¸Áî
+  43          void FPM10A_Cmd_Check(void)
+  44          {
+  45   1        int i=0;
+  46   1        FPM10A_Cmd_Send_Pack_Head(); //·¢ËÍÍ¨ÐÅÐ­Òé°üÍ·
+  47   1        for(i=0;i<10;i++)
+  48   1         {    
+  49   2          Uart_Send_Byte(FPM10A_Get_Device[i]);
+  50   2          }
+  51   1      }
+C51 COMPILER V9.59.0.0   FPM10A                                                            02/27/2021 22:04:44 PAGE 2   
+
+  52          //½ÓÊÕ·´À¡Êý¾Ý»º³å
+  53          void FPM10A_Receive_Data(unsigned char ucLength)
+  54          {
+  55   1        unsigned char i;
+  56   1      
+  57   1        for (i=0;i<ucLength;i++)
+  58   1           FPM10A_RECEICE_BUFFER[i] = Uart_Receive_Byte();
+  59   1      
+  60   1      }
+  61          
+  62          //FINGERPRINT_»ñµÃÖ¸ÎÆÍ¼ÏñÃüÁî
+  63          void FPM10A_Cmd_Get_Img(void)
+  64          {
+  65   1          unsigned char i;
+  66   1          FPM10A_Cmd_Send_Pack_Head(); //·¢ËÍÍ¨ÐÅÐ­Òé°üÍ·
+  67   1          for(i=0;i<6;i++) //·¢ËÍÃüÁî 0x1d
+  68   1        {
+  69   2             Uart_Send_Byte(FPM10A_Get_Img[i]);
+  70   2        }
+  71   1      }
+  72          //½²Í¼Ïñ×ª»»³ÉÌØÕ÷Âë´æ·ÅÔÚBuffer1ÖÐ
+  73          void FINGERPRINT_Cmd_Img_To_Buffer1(void)
+  74          {
+  75   1        unsigned char i;
+  76   1        FPM10A_Cmd_Send_Pack_Head(); //·¢ËÍÍ¨ÐÅÐ­Òé°üÍ·      
+  77   1          for(i=0;i<7;i++)   //·¢ËÍÃüÁî ½«Í¼Ïñ×ª»»³É ÌØÕ÷Âë ´æ·ÅÔÚ CHAR_buffer1
+  78   1           {
+  79   2            Uart_Send_Byte(FPM10A_Img_To_Buffer1[i]);
+  80   2            }
+  81   1      }
+  82          //½«Í¼Ïñ×ª»»³ÉÌØÕ÷Âë´æ·ÅÔÚBuffer2ÖÐ
+  83          void FINGERPRINT_Cmd_Img_To_Buffer2(void)
+  84          {
+  85   1           unsigned char i;
+  86   1           for(i=0;i<6;i++)    //·¢ËÍ°üÍ·
+  87   1         {
+  88   2            Uart_Send_Byte(FPM10A_Pack_Head[i]);   
+  89   2           }
+  90   1           for(i=0;i<7;i++)   //·¢ËÍÃüÁî ½«Í¼Ïñ×ª»»³É ÌØÕ÷Âë ´æ·ÅÔÚ CHAR_buffer1
+  91   1            {
+  92   2              Uart_Send_Byte(FPM10A_Img_To_Buffer2[i]);
+  93   2            }
+  94   1      }
+  95          //ËÑË÷È«²¿ÓÃ»§999Ã¶
+  96          void FPM10A_Cmd_Search_Finger(void)
+  97          {
+  98   1             unsigned char i;         
+  99   1             FPM10A_Cmd_Send_Pack_Head(); //·¢ËÍÍ¨ÐÅÐ­Òé°üÍ·
+ 100   1             for(i=0;i<11;i++)
+ 101   1                 {
+ 102   2                  Uart_Send_Byte(FPM10A_Search[i]);   
+ 103   2               }
+ 104   1      }
+ 105          
+ 106          void FPM10A_Cmd_Reg_Model(void)
+ 107          {
+ 108   1             unsigned char i;    
+ 109   1            
+ 110   1             FPM10A_Cmd_Send_Pack_Head(); //·¢ËÍÍ¨ÐÅÐ­Òé°üÍ·
+ 111   1      
+ 112   1             for(i=0;i<6;i++)
+ 113   1                 {
+C51 COMPILER V9.59.0.0   FPM10A                                                            02/27/2021 22:04:44 PAGE 3   
+
+ 114   2                  Uart_Send_Byte(FPM10A_Reg_Model[i]);   
+ 115   2               }
+ 116   1      
+ 117   1      
+ 118   1      }
+ 119          //É¾³ýÖ¸ÎÆÄ£¿éÀïµÄËùÓÐÖ¸ÎÆÄ£°æ
+ 120          void FINGERPRINT_Cmd_Delete_All_Model(void)
+ 121          {
+ 122   1           unsigned char i;    
+ 123   1          for(i=0;i<6;i++) //°üÍ·
+ 124   1            Uart_Send_Byte(FPM10A_Pack_Head[i]);   
+ 125   1          for(i=0;i<6;i++) //ÃüÁîºÏ²¢Ö¸ÎÆÄ£°æ
+ 126   1           {
+ 127   2            Uart_Send_Byte(FPM10A_Delete_All_Model[i]);   
+ 128   2           }  
+ 129   1      }
+ 130          //±£´æÖ¸ÎÆ
+ 131          void FPM10A_Cmd_Save_Finger( unsigned int storeID )
+ 132          {
+ 133   1             unsigned long temp = 0;
+ 134   1             unsigned char i;
+ 135   1             FPM10A_Save_Finger[5] =(storeID&0xFF00)>>8;
+ 136   1             FPM10A_Save_Finger[6] = (storeID&0x00FF);
+ 137   1             for(i=0;i<7;i++)   //¼ÆËãÐ£ÑéºÍ
+ 138   1                 temp = temp + FPM10A_Save_Finger[i]; 
+ 139   1             FPM10A_Save_Finger[7]=(temp & 0x00FF00) >> 8; //´æ·ÅÐ£ÑéÊý¾Ý
+ 140   1             FPM10A_Save_Finger[8]= temp & 0x0000FF;       
+ 141   1             FPM10A_Cmd_Send_Pack_Head(); //·¢ËÍÍ¨ÐÅÐ­Òé°üÍ·  
+ 142   1             for(i=0;i<9;i++)  
+ 143   1                Uart_Send_Byte(FPM10A_Save_Finger[i]);      //·¢ËÍÃüÁî ½«Í¼Ïñ×ª»»³É ÌØÕ÷Âë ´æ·ÅÔÚ CHAR_buffer1
+ 144   1      }
+ 145          
+ 146          /*Ìí¼ÓÖ¸ÎÆ
+ 147          void FPM10A_Add_Fingerprint()
+ 148          {
+ 149            unsigned char id_show[]={0,0,0};
+ 150            ClrScreen(); //Çå¿ÕÏÔÊ¾ÆÁ  
+ 151            while(1)
+ 152            {
+ 153             LCD_PutString(0,1,"ÇëÊäÈëÖ¸ÎÆID:");
+ 154             LCD_PutString(0,2,"ÉÏ£º+ ÏÂ£º-");
+ 155             //°´·µ»Ø¼üÖ±½Ó»Øµ½Ö÷²Ëµ¥
+ 156             if(key == 15) 
+ 157              {
+ 158               while(key == 15);
+ 159               break;
+ 160               }
+ 161             //°´ÉÏ¼üfingerÖµ¼ÓÒ» 
+ 162             if(key == 3)
+ 163              {
+ 164                 while(key == 3);
+ 165                 if(finger_id == 999)
+ 166                   {
+ 167                    finger_id = 0;
+ 168                   }
+ 169                  else
+ 170                   {
+ 171                    finger_id = finger_id + 1;
+ 172                   };
+ 173              }
+ 174              //°´ÉÏ¼üfingerÖµ¼õÒ»
+ 175              if(key == 7)
+C51 COMPILER V9.59.0.0   FPM10A                                                            02/27/2021 22:04:44 PAGE 4   
+
+ 176               {
+ 177                   while(key == 7);
+ 178                   if(finger_id == 0)
+ 179                     {
+ 180                      finger_id = 999;
+ 181                      }
+ 182                    else
+ 183                      finger_id = finger_id - 1;
+ 184                }
+ 185             //fingerÖµÏÔÊ¾´¦Àí 
+ 186             id_show[0]=finger_id/100;
+ 187             id_show[1]=finger_id%100/10;
+ 188             id_show[2]=finger_id%100%10;
+ 189             LCD_PutString(0,3,"ID:");
+ 190             Write_Cmd(0x88+4);
+ 191             Write_Data(0x30+id_show[0]);
+ 192             Write_Cmd(0x88+5);
+ 193             Write_Data(0x30+id_show[1]);
+ 194             Write_Cmd(0x88+6);
+ 195             Write_Data(0x30+id_show[2]);
+ 196             //°´È·ÈÏ¼ü¿ªÊ¼Â¼ÈëÖ¸ÎÆÐÅÏ¢           
+ 197             if(key == 11)
+ 198              { 
+ 199                  while(key == 11);
+ 200                  ClrScreen(); //Çå¿ÕÏÔÊ¾ÆÁ
+ 201                  LCD_PutString(0,1,"ÇëÊäÈëÖ¸ÎÆ");
+ 202                  do
+ 203                 {
+ 204                  //°´ÏÂ·µ»Ø¼üÍË³öÂ¼Èë·µ»ØfingerIDµ÷Õû×´Ì¬   
+ 205                  if(key == 15) 
+ 206                   {
+ 207                    while(KEY_CANCEL==15);
+ 208                    break;
+ 209                    }
+ 210                  FPM10A_Cmd_Get_Img(); //»ñµÃÖ¸ÎÆÍ¼Ïñ
+ 211                  FPM10A_Receive_Data(12);
+ 212                  //ÅÐ¶Ï½ÓÊÕµ½µÄÈ·ÈÏÂë,µÈÓÚ0Ö¸ÎÆ»ñÈ¡³É¹¦
+ 213                  if(FPM10A_RECEICE_BUFFER[9]==0)
+ 214                   {
+ 215                    Delay_Ms(100);
+ 216                    FINGERPRINT_Cmd_Img_To_Buffer1();
+ 217                    FPM10A_Receive_Data(12);
+ 218                    LCD_PutString(0,2,"ÊäÈë³É¹¦");
+ 219                    //Buzz_Times(1);
+ 220                    Delay_Ms(500);
+ 221                    LCD_PutString(0,3,"ÇëÈ·ÈÏ£¬ÊäÈëÖ¸ÎÆ");
+ 222                    do
+ 223                    {
+ 224                     FPM10A_Cmd_Get_Img(); //»ñµÃÖ¸ÎÆÍ¼Ïñ
+ 225                     FPM10A_Receive_Data(12);
+ 226                    //ÅÐ¶Ï½ÓÊÕµ½µÄÈ·ÈÏÂë,µÈÓÚ0Ö¸ÎÆ»ñÈ¡³É¹¦
+ 227                    if(FPM10A_RECEICE_BUFFER[9]==0)
+ 228                     {
+ 229                      Delay_Ms(100);
+ 230                      FINGERPRINT_Cmd_Img_To_Buffer2();
+ 231                      FPM10A_Receive_Data(12);
+ 232                      FPM10A_Cmd_Reg_Model();//×ª»»³ÉÌØÕ÷Âë
+ 233                      FPM10A_Receive_Data(12); 
+ 234                      FPM10A_Cmd_Save_Finger(finger_id++);                             
+ 235                      FPM10A_Receive_Data(12);
+ 236                      LCD_PutString(0,4,"Ö¸ÎÆÂ¼Èë³É¹¦");
+ 237                      //Buzz_Times(1);
+C51 COMPILER V9.59.0.0   FPM10A                                                            02/27/2021 22:04:44 PAGE 5   
+
+ 238                      Delay_Ms(1000);
+ 239                      break;
+ 240                      }
+ 241                     }while(key == 15);
+ 242                    break;
+ 243                    }
+ 244                  }while(key == 15);
+ 245                ClrScreen(); //Çå¿ÕÏÔÊ¾ÆÁ
+ 246                }
+ 247              //  Delay_Ms(500);
+ 248              }
+ 249          }*/
+ 250          
+ 251          /*ËÑË÷Ö¸ÎÆ*/
+ 252          void FPM10A_Find_Fingerprint()
+ 253          {
+ 254   1         unsigned int find_fingerid = 0;
+ 255   1         unsigned char id_show[]={0,0,0};
+ 256   1         Delay_Ms(10000);
+ 257   1         ClrScreen(); //Çå¿ÕÏÔÊ¾ÆÁ
+ 258   1         LCD_PutString(0,1,"Çë°´ÊÖÖ¸ ");
+ 259   1         Delay_Ms(10000);
+ 260   1         do
+ 261   1         {  
+ 262   2            Led_Red_On();//**
+ 263   2            FPM10A_Cmd_Get_Img(); //»ñµÃÖ¸ÎÆÍ¼Ïñ
+ 264   2            //Led_Red_On();  //ºìµÆÁÁ 
+ 265   2            FPM10A_Receive_Data(12);    
+ 266   2            //ÅÐ¶Ï½ÓÊÕµ½µÄÈ·ÈÏÂë,µÈÓÚ0Ö¸ÎÆ»ñÈ¡³É¹¦
+ 267   2            //Led_Red_On();  //ºìµÆÁÁ 
+ 268   2           
+ 269   2            if(FPM10A_RECEICE_BUFFER[9]==0)
+ 270   2            {     
+ 271   3              Delay_Ms(100);
+ 272   3              FINGERPRINT_Cmd_Img_To_Buffer1();
+ 273   3              FPM10A_Receive_Data(12);    
+ 274   3              FPM10A_Cmd_Search_Finger();
+ 275   3              FPM10A_Receive_Data(16);      
+ 276   3              if(FPM10A_RECEICE_BUFFER[9] == 0) //ËÑË÷µ½  
+ 277   3              {
+ 278   4                ClrScreen();
+ 279   4                LCD_PutString(0,1,"Çë°´ÊÖÖ¸ ");
+ 280   4                LCD_PutString(0,2,"ËÑË÷³É¹¦");
+ 281   4                Delay_Ms(10000);
+ 282   4                Delay_Ms(10000);
+ 283   4                ClrScreen();
+ 284   4                LCD_PutString(0,2,"  ÇëÍ¨ÐÐ");
+ 285   4                Delay_Ms(10000);
+ 286   4                Led_Green_On();  //ÂÌµÆÁÁ
+ 287   4                P61 = 1;
+ 288   4                lock = 0;  //µç×ÓËø¿ªÃÅ
+ 289   4                ISP_Check1();  //²¥·Å £º Ê¶±ð³É¹¦ÇëÍ¨ÐÐ
+ 290   4                //Led_Green_Off;
+ 291   4                //Buzz_Times(1);          
+ 292   4                //Æ´½ÓÖ¸ÎÆIDÊý
+ 293   4                find_fingerid = FPM10A_RECEICE_BUFFER[10]*256 + FPM10A_RECEICE_BUFFER[11];          
+ 294   4                id_show[0]=find_fingerid/100;
+ 295   4                id_show[1]=find_fingerid%100/10;
+ 296   4                id_show[2]=find_fingerid%100%10;
+ 297   4                LCD_PutString(0,3,"ID:");
+ 298   4                Write_Cmd(0x88+4);
+ 299   4                Write_Data(0x30+id_show[0]);
+C51 COMPILER V9.59.0.0   FPM10A                                                            02/27/2021 22:04:44 PAGE 6   
+
+ 300   4                Write_Cmd(0x88+5);
+ 301   4                Write_Data(0x30+id_show[1]);
+ 302   4                Write_Cmd(0x88+6);
+ 303   4                Write_Data(0x30+id_show[2]);            
+ 304   4                Delay_Ms(2000);
+ 305   4                //Led_Green_On();
+ 306   4                Delay_Ms(2000);
+ 307   4                break;
+ 308   4              }
+ 309   3              else{ //Ã»ÓÐÕÒµ½
+ 310   4                ClrScreen();
+ 311   4                LCD_PutString(0,1,"ÇëÊäÈëÖ¸ÎÆ ");
+ 312   4                LCD_PutString(0,2,"Î´ÕÒµ½Ö¸ÎÆÐÅÏ¢ ");
+ 313   4                
+ 314   4                //Buzz_Times(3);
+ 315   4                /*Õâ¸öµØ·½Ìí¼Óµç×ÓÃÜÂëËø£¡£¡*/
+ 316   4                Delay_Ms(30000);
+ 317   4                ClrScreen();
+ 318   4                LCD_PutString(0, 1, "ÇëÊäÈëÃÜÂë£º");
+ 319   4                while (1) {
+ 320   5                    key = KeyDown();
+ 321   5                    Delay_Ms(500);
+ 322   5                    if (key != (-1)){
+ 323   6                      KeyScan();
+ 324   6                    }
+ 325   5                    if (key == 15)
+ 326   5                    {
+ 327   6                      //Led_Green_On();  //ÂÌµÆÁÁ
+ 328   6                      break;
+ 329   6                    }
+ 330   5                }
+ 331   4                break;
+ 332   4              }
+ 333   3      
+ 334   3            }
+ 335   2          } while(key == 14);
+ 336   1      }
+ 337          /*É¾³ýËùÓÐ´æÖüµÄÖ¸ÎÆ¿â
+ 338          void FPM10A_Delete_All_Fingerprint()
+ 339          {
+ 340              unsigned char i=0;
+ 341              ClrScreen(); //Çå¿ÕÏÔÊ¾ÆÁ
+ 342              LCD_PutString(1,1,"Çå¿ÕÖ¸ÎÆ¿â£¿");
+ 343              do
+ 344               {
+ 345                if(key == 11)
+ 346                {
+ 347                  while(key == 11);
+ 348                  LCD_PutString(0,2,"Çå¿ÕÖÐ");
+ 349                  Delay_Ms(300);
+ 350                  for(i=0;i<8;i++)
+ 351                   {
+ 352                    LCD_PutString(i,3,"*");
+ 353                    Delay_Ms(200);
+ 354                   }
+ 355                  FINGERPRINT_Cmd_Delete_All_Model();
+ 356                  FPM10A_Receive_Data(12); 
+ 357                  LCD_PutString(2,4,"Çå¿Õ³É¹¦");
+ 358                //  Buzz_Times(3);
+ 359                  break;
+ 360                }
+ 361               }while(key == 15);
+C51 COMPILER V9.59.0.0   FPM10A                                                            02/27/2021 22:04:44 PAGE 7   
+
+ 362          }*/
+ 363          /*Éè±¸¼ì²é*/
+ 364          void Device_Check(void)
+ 365          {
+ 366   1          unsigned char i=0;
+ 367   1          FPM10A_RECEICE_BUFFER[9]=1;
+ 368   1          ClrScreen(); //Çå¿ÕÏÔÊ¾ÆÁ
+ 369   1          LCD_PutString(0,1,"Éè±¸¼ÓÔØÖÐ.....");
+ 370   1          Delay_Ms(5000);
+ 371   1          for(i=0;i<8;i++)
+ 372   1          {
+ 373   2            LCD_PutString(i,2,"*");
+ 374   2            Delay_Ms(800);
+ 375   2          }
+ 376   1          LCD_PutString(0,3,"Éè±¸¼ÓÔØÊ§°Ü");  // *********
+ 377   1          FPM10A_Cmd_Check();
+ 378   1          FPM10A_Receive_Data(12);
+ 379   1          if(FPM10A_RECEICE_BUFFER[9] == 0)
+ 380   1          //if(1)
+ 381   1          { 
+ 382   2            ClrScreen();
+ 383   2            LCD_PutString(0,2,"Éè±¸¼ÓÔØ³É¹¦");
+ 384   2          //  Buzz_Times(1);
+ 385   2            Delay_Ms(5000);
+ 386   2            
+ 387   2            ClrScreen();
+ 388   2            LCD_PutString(2,1,"»¶Ó­Ê¹ÓÃ");
+ 389   2            LCD_PutString(1,2,"Ö¸ÎÆÊ¶±ðÏµÍ³");
+ 390   2            Delay_Ms(5000);
+ 391   2            LCD_PutString(1,3,"ÏµÍ³³õÊ¼»¯ÖÐ");
+ 392   2            Delay_Ms(5000);
+ 393   2            for(i=0;i<8;i++)
+ 394   2          {
+ 395   3            LCD_PutString(i,4,"*");
+ 396   3            Delay_Ms(3000);
+ 397   3          }
+ 398   2        //  Buzz_Times(3);
+ 399   2            Delay_Ms(1000);
+ 400   2          }
+ 401   1      }
+ 402          
+ 403          
+ 404          
+ 405          
+ 406          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1319    ----
+   CONSTANT SIZE    =    231    ----
+   XDATA SIZE       =     44      23
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

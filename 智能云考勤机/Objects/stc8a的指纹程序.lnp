@@ -1,0 +1,15 @@
+".\Objects\STARTUP.obj",
+".\Objects\main.obj",
+".\Objects\delay.obj",
+".\Objects\FPM10A.obj",
+".\Objects\lcd_12864.obj",
+".\Objects\led.obj",
+".\Objects\uart.obj",
+".\Objects\keyboard.obj",
+".\Objects\offline.obj",
+".\Objects\voice.obj",
+".\Objects\ov7670.obj",
+".\Objects\sccb.obj",
+".\Objects\WIFI.obj" 
+TO ".\Objects\stc8a的指纹程序" 
+PRINT(".\Listings\stc8a的指纹程序.m51") RAMSIZE(256) 

@@ -1,0 +1,162 @@
+C51 COMPILER V9.59.0.0   WIFI                                                              02/27/2021 22:04:45 PAGE 1   
+
+
+C51 COMPILER V9.59.0.0, COMPILATION OF MODULE WIFI
+OBJECT MODULE PLACED IN .\Objects\WIFI.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE WIFI.c LARGE OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listing
+                    -s\WIFI.lst) TABS(2) OBJECT(.\Objects\WIFI.obj)
+
+line level    source
+
+   1          #include<stc8.h>  //51单片机常用的头文件
+   2          #include "wifi.h"
+   3          #define uchar unsigned char   //宏定义一个无符号的char类型
+   4          #define uint unsigned int   //宏定义一个无符号的int类型
+   5          
+   6          uchar Hour[]={0x0a,0x0b,"\0"};
+   7          volatile uint Flag=0;
+   8          //发送一字节
+   9          void sendByte(uchar b)
+  10          {
+  11   1        SBUF = b;
+  12   1        while(!TI);
+  13   1        TI=0;
+  14   1      }
+  15          
+  16          //发送字符串
+  17          void sendString(uchar *s)
+  18          {
+  19   1        while(*s != '\0') //字符串默认结尾'\0'，以此来判断字符串的结束
+  20   1        {
+  21   2          sendByte(*s);
+  22   2          s++;
+  23   2        }
+  24   1      }
+  25          
+  26          //初始化ESP8266WiFi模块
+  27          void initEsp()
+  28          {
+  29   1        uint a;
+  30   1        P_SW2=0x01;
+  31   1        S2CON = 0x50;   //8位数据,可变波特率
+  32   1        AUXR |= 0x04;   //定时器2时钟为Fosc,即1T
+  33   1        T2L = 0x8F;   //设定定时初值
+  34   1        T2H = 0xFD;   //设定定时初值
+  35   1        AUXR |= 0x10;   //启动定时器2
+  36   1        IE2 = ES2; //使能串口中断
+  37   1       EA = 1; 
+  38   1      
+  39   1        for (a=0; a<50000; a++);    //延时几秒，让模块有时间启动
+  40   1        sendString("AT+CWMODE=2\r\n");  //设置为softAP和station共存模式
+  41   1      
+  42   1        //WiFi热点不能通过代码设置，可使用串口助手进行设置，该设置断电不丢失
+  43   1        /*
+  44   1        for (a=0; a<20000; a++);
+  45   1        sendString("AT+CWSAP='TEST','12345678',1,3\n"); //建立WiFi热点
+  46   1        */
+  47   1      
+  48   1        for (a=0; a<50000; a++);    
+  49   1        sendString("AT+CIPMUX=1\r\n"); //启动多连接
+  50   1      
+  51   1        for (a=0; a<20000; a++);
+  52   1        sendString("AT+CIPSERVER=1,333\r\n");//建立server，端口为333
+  53   1      
+  54   1        for (a=0; a<20000; a++);
+C51 COMPILER V9.59.0.0   WIFI                                                              02/27/2021 22:04:45 PAGE 2   
+
+  55   1        sendString("AT+CIPSTO=50\r\n");     //服务器超时时间设置
+  56   1      
+  57   1        RI=0;
+  58   1        ES=1;   //初始化完成，串行口中断打开
+  59   1      }
+  60          
+  61          
+  62          /*//获取数据，数据格式示例：+IPD,0,14:"time":"11:11"
+  63          void getData()
+  64          {
+  65            uint a,i;
+  66            if(receiveFlag)
+  67            {
+  68              for(i=0; i<2; i++)
+  69              {
+  70                Hour[i]=Buffer[17+i];
+  71              }
+  72              Hour[2]='\0';
+  73          
+  74              for(i=0; i<2; i++)
+  75              {
+  76                Minute[i]=Buffer[20+i];
+  77              }
+  78              Minute[2]='\0';
+  79          
+  80              //将获取到的数据发送到串口助手上显示
+  81              for (a=0; a<10000; a++);  //需要延时，负责会造成数据错乱导致丢包
+  82              sendString(Hour);
+  83              for (a=0; a<10000; a++);
+  84              sendString(Minute);
+  85          
+  86              receiveFlag=0;
+  87              count=0;
+  88              for(i=0; i<22; i++)
+  89              {
+  90                Buffer[i]=0;
+  91              }
+  92            }
+  93          }
+  94          
+  95          //主函数
+  96          void main()
+  97          {
+  98            initEsp();      //初始化WiFi模块
+  99            receiveFlag = 0;    //receiveFlag判断执行getData() 的标志
+ 100            count = 0;      //count缓冲区RXDdata[count]的索引  
+ 101            while(1)
+ 102            { 
+ 103              getData();
+ 104            }
+ 105          }
+ 106          
+ 107          //利用中断接收信息，且舍弃无效信息
+ 108          void uart() interrupt 4  
+ 109          {
+ 110            if(RI == 1) 
+ 111            {
+ 112              ES = 0;     //关闭串行中断
+ 113              RI = 0;     //清除串口接收标志位
+ 114              temp = SBUF; //从串口缓冲区取得数据
+ 115          
+ 116              if(count<20)  //满足需接收的信息长度，将数据存入缓冲区
+C51 COMPILER V9.59.0.0   WIFI                                                              02/27/2021 22:04:45 PAGE 3   
+
+ 117              { 
+ 118                Buffer[count]=temp;
+ 119                count++;
+ 120                if(Buffer[0]=='+')  //判断是否为无效数据，由于WiFi模块会自动加上"+PID.."开头的字符串
+ 121                {
+ 122                  receiveFlag = 1; 
+ 123                }
+ 124                else
+ 125                {
+ 126                  receiveFlag = 0;
+ 127                  count = 0;
+ 128                }
+ 129              } 
+ 130              ES = 1; 
+ 131            }
+ 132          }
+ 133          */
+ 134            
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    249    ----
+   CONSTANT SIZE    =     64    ----
+   XDATA SIZE       =      6       2
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
